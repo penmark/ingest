@@ -3,7 +3,7 @@ monkey.patch_all()
 from gevent.queue import Queue
 from gevent.pool import Pool
 from argparse import ArgumentParser
-from hashlib import sha256
+from ingest.hash import hash_contents
 from ingest.mediainfo import get_info
 from ingest.mime import get_mime
 from ingest.mongo import Mongo
@@ -12,7 +12,7 @@ import sys
 import os
 
 
-class Worker(object):
+class IngestWorker(object):
     def __init__(self, queue, config):
         self.queue = queue
         self.config = config
@@ -23,13 +23,13 @@ class Worker(object):
             filename = self.queue.get()
             filename = os.path.abspath(filename.strip())
             print('Processing ', filename, '...', sep='')
-            sha256 = spawn(generate_hash, filename)
+            sha256 = spawn(hash_contents, filename)
             info = spawn(get_info, filename)
             existing = self.mongo.exists(filename)
             magic_mime = get_mime(filename)
             thumbs = None
             info = info.get()
-            if 'video' in magic_mime and (not existing or 'thumbs' not in info):
+            if 'video' in magic_mime and (not existing or 'thumbs' not in existing):
                 thumbs = spawn(get_thumbs, filename)
             if 'mimetype' not in info:
                 info['mimetype'] = magic_mime
@@ -43,14 +43,6 @@ class Worker(object):
             else:
                 self.mongo.insert(info)
             print('Done with', filename)
-
-
-def generate_hash(filename):
-    with open(filename, 'rb') as f:
-        hash_ = sha256()
-        for chunk in iter(lambda: f.read(4096), b''):
-            hash_.update(chunk)
-        return hash_.hexdigest()
 
 
 def from_cmd_line():
@@ -69,13 +61,19 @@ def from_cmd_line():
     ingest(files, args)
 
 
+def spinup(queue, filenames):
+    for filename in filenames:
+        queue.put(filename)
+
+
 def ingest(files, config):
     queue = Queue()
     pool = Pool(5)
-    pool.spawn(Worker(queue, config))
-    for filename in files:
-        queue.put(filename)
+    boss = gevent.spawn(spinup, queue, files)
+    pool.spawn(IngestWorker(queue, config))
+    boss.join()
     pool.join()
+
 
 if __name__ == '__main__':
     from_cmd_line()
