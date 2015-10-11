@@ -69,7 +69,7 @@ def spinup(queue, filenames):
 def ingest(files, config):
     queue = Queue()
     pool = Pool(5)
-    boss = gevent.spawn(spinup, queue, files)
+    boss = spawn(spinup, queue, files)
     pool.spawn(IngestWorker(queue, config))
     boss.join()
     pool.join()

@@ -11,6 +11,7 @@ def mapping(tag_name):
         'internet_media_type': 'mimetype'
     }.get(tag_name, tag_name)
 
+
 def get_info(filename):
     output = check_output(['mediainfo', '-f', '--Output=XML', filename])
     stat = os.stat(filename)
@@ -28,6 +29,6 @@ def get_info(filename):
             if tag not in subsection:
                 subsection[tag] = value.text
     info['complete_name'] = filename
-    info.setdefault('title', info['file_name'])
+    info.setdefault('title', info.get('file_name', info.get('complete_name')))
     return info
 
