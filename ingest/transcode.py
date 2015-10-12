@@ -1,9 +1,10 @@
 from gevent import monkey, spawn
 monkey.patch_all()
+from argparse import ArgumentParser
 from gevent.subprocess import Popen, PIPE, DEVNULL, check_output
 from gevent.queue import Queue
 from datetime import timedelta
-import sys
+import os
 import io
 import json
 
@@ -20,8 +21,8 @@ def transcode(infile, outfile, metadata=None, done_callback=None, progress_callb
               '-progress', '-', '-i', infile, '-codec:v', 'h264',
               '-codec:a', 'aac', '-strict', '-2', outfile]
     if metadata:
-        for key, val in metadata.items():
-            ffmpeg[1:1] = ['-metadata', '{}={}'.format(key, value)]
+        for key, value in metadata.items():
+            ffmpeg[-1:1] = ['-metadata', '{}={}'.format(key, value)]
     out = PIPE if progress_callback else DEVNULL
     with Popen(ffmpeg, stdout=out) as process:
         if not progress_callback:
@@ -38,16 +39,27 @@ def transcode(infile, outfile, metadata=None, done_callback=None, progress_callb
     done_callback()
 
 
-if __name__ == '__main__':
-    infile, outfile = sys.argv[1:3]
+def from_cmd_line():
+    parser = ArgumentParser()
+    parser.add_argument('infile')
+    parser.add_argument('outfile')
+    parser.add_argument('-t', '--metadata-title')
+    args = parser.parse_args()
     def progress_callback(percent):
         print('{}%'.format(percent), end='\n', flush=True)
     def done_callback():
         print('Done')
-    print('Transcoding {} to {}...'.format(infile, outfile))
-    proc = spawn(transcode, infile, outfile, done_callback, progress_callback)
+    print('Transcoding {} to {}...'.format(args.infile, args.outfile))
+    metadata = dict(title=os.path.basename(os.path.splitext(args.outfile)[0]))
+    if args.metadata_title:
+        metadata['title'] = args.metadata_title
+    proc = spawn(transcode, args.infile, args.outfile, metadata, done_callback, progress_callback)
     try:
         proc.join()
     except:
         proc.kill()
+
+
+if __name__ == '__main__':
+    from_cmd_line()
 
