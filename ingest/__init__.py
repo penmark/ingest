@@ -46,7 +46,7 @@ class IngestWorker(object):
                 self.mongo.update(info)
             else:
                 self.mongo.insert(info)
-            print('Done with', os.path.basename(filename),
+            print('Done with  ', filename,
                   'in {:.2f}'.format((datetime.now() - t1).total_seconds()))
 
 
@@ -75,7 +75,8 @@ def ingest(files, config):
     queue = Queue()
     pool = Pool(5)
     boss = spawn(spinup, queue, files)
-    pool.spawn(IngestWorker(queue, config))
+    for _ in range(5):
+        pool.spawn(IngestWorker(queue, config))
     boss.join()
     pool.join()
 
