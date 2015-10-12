@@ -3,6 +3,7 @@ monkey.patch_all()
 from subprocess import check_output
 from lxml import etree
 from datetime import datetime
+import base64
 import os
 
 
@@ -27,7 +28,12 @@ def get_info(filename):
         for value in track:
             tag = mapping(value.tag.lower())
             if tag not in subsection:
-                subsection[tag] = value.text
+                if tag == 'cover_data':
+                    value = base64.b64decode(value.text)
+                else:
+                    value = value.text
+                subsection[tag] = value
+
     info['complete_name'] = filename
     info.setdefault('title', info.get('file_name', info.get('complete_name')))
     return info

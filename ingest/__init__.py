@@ -1,5 +1,6 @@
 from gevent import monkey, spawn
 monkey.patch_all()
+from datetime import datetime
 from gevent.queue import Queue
 from gevent.pool import Pool
 from argparse import ArgumentParser
@@ -22,6 +23,9 @@ class IngestWorker(object):
         while not self.queue.empty():
             filename = self.queue.get()
             filename = os.path.abspath(filename.strip())
+            if os.path.isdir(filename):
+                continue
+            t1 = datetime.now()
             print('Processing ', filename, '...', sep='')
             sha256 = spawn(hash_contents, filename)
             info = spawn(get_info, filename)
@@ -42,7 +46,8 @@ class IngestWorker(object):
                 self.mongo.update(info)
             else:
                 self.mongo.insert(info)
-            print('Done with', filename)
+            print('Done with', os.path.basename(filename),
+                  'in {:.2f}'.format((datetime.now() - t1).total_seconds()))
 
 
 def from_cmd_line():
