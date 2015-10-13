@@ -26,7 +26,7 @@ class IngestWorker(object):
             if os.path.isdir(filename):
                 continue
             t1 = datetime.now()
-            print('Processing ', filename, '...', sep='')
+            print(filename, '...', sep='')
             sha256 = spawn(hash_contents, filename)
             info = spawn(get_info, filename)
             existing = self.mongo.exists(filename)
@@ -46,8 +46,7 @@ class IngestWorker(object):
                 self.mongo.update(info)
             else:
                 self.mongo.insert(info)
-            print('Done with  ', filename,
-                  'in {:.2f}'.format((datetime.now() - t1).total_seconds()))
+            print(filename, 'done in {:.2f}s'.format((datetime.now() - t1).total_seconds()))
 
 
 def from_cmd_line():
