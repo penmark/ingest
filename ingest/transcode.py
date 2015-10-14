@@ -2,10 +2,7 @@ from gevent import monkey, spawn
 monkey.patch_all()
 from argparse import ArgumentParser
 from gevent.subprocess import Popen, PIPE, DEVNULL, check_output
-from gevent.queue import Queue
-from datetime import timedelta
 import os
-import io
 import json
 
 
@@ -23,10 +20,13 @@ def transcode(infile, outfile, metadata=None, done_callback=None, progress_callb
     if metadata:
         for key, value in metadata.items():
             ffmpeg[-1:1] = ['-metadata', '{}={}'.format(key, value)]
+
     out = PIPE if progress_callback else DEVNULL
     with Popen(ffmpeg, stdout=out) as process:
         if not progress_callback:
             process.wait()
+            if done_callback:
+                done_callback()
             return
         duration = get_duration(infile)
         while process.poll() is None:
@@ -35,8 +35,9 @@ def transcode(infile, outfile, metadata=None, done_callback=None, progress_callb
                     out_time_ms = int(line[12:])
                     percent = out_time_ms / duration * 100
                     progress_callback(percent)
-            progress_callback(100)
-    done_callback()
+        progress_callback(100)
+    if done_callback:
+        done_callback()
 
 
 def from_cmd_line():
@@ -45,10 +46,13 @@ def from_cmd_line():
     parser.add_argument('outfile')
     parser.add_argument('-t', '--metadata-title')
     args = parser.parse_args()
+
     def progress_callback(percent):
-        print('{}%'.format(percent), end='\n', flush=True)
+        print('\r[{0:50s}] {1:.2f}%'.format('#' * round(percent / 50), percent), sep='', end='', flush=True)
+
     def done_callback():
-        print('Done')
+        print('\nDone')
+
     print('Transcoding {} to {}...'.format(args.infile, args.outfile))
     metadata = dict(title=os.path.basename(os.path.splitext(args.outfile)[0]))
     if args.metadata_title:
