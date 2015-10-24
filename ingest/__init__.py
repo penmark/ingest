@@ -41,6 +41,7 @@ class IngestWorker(object):
                 orig, small = thumbs.get()
                 info['thumbs'] = dict(large=orig, small=small)
             info['sha256'] = sha256.get()
+            info['type'] = info['mimetype'].split('/')[0]
             if existing:
                 info.pop('title')
                 self.mongo.update(info)
