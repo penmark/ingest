@@ -16,7 +16,6 @@ class Mongo(object):
     def insert(self, info):
         record = info.copy()
         record['modified'] = datetime.utcnow()
-        record['created'] = datetime.utcnow()
         result = self.c.insert_one(record)
         return result.inserted_id
 

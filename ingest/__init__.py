@@ -14,10 +14,9 @@ import os
 
 
 class IngestWorker(object):
-    def __init__(self, queue, config):
+    def __init__(self, queue, mongo):
         self.queue = queue
-        self.config = config
-        self.mongo = Mongo(config.db_url, config.collection)
+        self.mongo = mongo
 
     def __call__(self):
         while not self.queue.empty():
@@ -63,7 +62,7 @@ def from_cmd_line():
             files = sys.stdin
     else:
         files = sys.stdin
-    ingest(files, args)
+    ingest(files, args.db_url, args.collection)
 
 
 def spinup(queue, filenames):
@@ -71,12 +70,14 @@ def spinup(queue, filenames):
         queue.put(filename)
 
 
-def ingest(files, config):
+def ingest(files, db_url, collection_name):
     queue = Queue()
     pool = Pool(5)
     boss = spawn(spinup, queue, files)
+    mongo = Mongo(db_url, collection_name)
     for _ in range(5):
-        pool.spawn(IngestWorker(queue, config))
+        worker = IngestWorker(queue, mongo)
+        pool.spawn(worker)
     boss.join()
     pool.join()
 

@@ -20,6 +20,7 @@ setup(
     entry_points={
         'console_scripts': """
             ingest = ingest:from_cmd_line
+            ingest_mediainfo = ingest.mediainfo:from_cmd_line
         """
     }
 )
