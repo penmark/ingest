@@ -6,11 +6,11 @@ setup(
     version='0.0.1',
     packages=find_packages(exclude=['ingest.tests']),
     install_requires="""
-        gevent>=1.1b5
+        gevent==1.1.2
         lxml==3.4.4
-        pillow==3.0.0
+        pillow==3.3.1
         pymongo==3.0.3
-        python-magic==0.4.6
+        python-magic==0.4.12
     """,
     tests_require=['nose'],
     test_suite='ingest.tests',

@@ -29,7 +29,7 @@ def value_mapping(tag_name):
         'count_of_stream_of_this_kind': int,
         'cover_data': base64.b64decode,
         'display_aspect_ratio': float,
-        'duration': int,
+        'duration': float,
         'file_size': int,
         'frame_count': int,
         'frame_rate': float,
@@ -40,7 +40,6 @@ def value_mapping(tag_name):
         'pixel_aspect_ratio': float,
         'proportion_of_this_stream': float,
         'stream_size': int,
-        'sampling_rate': int,
         'samples_count': int,
         'width': int,
     }.get(tag_name, str)
@@ -66,7 +65,11 @@ def get_info(filename):
             # Use first tag only.
             # mediatype -f repeats tags; first tag is the one with the best information
             if tag not in subsection:
-                value = value_mapping(tag)(value.text)
+                try:
+                    value = value_mapping(tag)(value.text)
+                except ValueError:
+                    print('ValueError for {}; {} isn\'t {}:able'.format(tag, value_mapping(tag), value.text))
+                    value = value.text
                 subsection[tag] = value
 
     info['complete_name'] = filename
