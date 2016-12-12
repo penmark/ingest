@@ -11,6 +11,7 @@ setup(
         pillow==3.3.1
         pymongo==3.0.3
         python-magic==0.4.12
+        boto==2.44.0
     """,
     tests_require=['nose'],
     test_suite='ingest.tests',
