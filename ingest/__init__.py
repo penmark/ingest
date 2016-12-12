@@ -49,7 +49,7 @@ class IngestWorker(object):
                 small_url = self.s3.put_string(small, key_fmt.format('sm'))
                 info['thumbs'] = dict(large=large_url, small=small_url)
             info['type'] = info['mimetype'].split('/')[0]
-            key = '{}/{}/{}'.format(info['type'], hash_, basename)
+            key = '{}/{}/{}'.format(info['type'], info['hash'], basename)
             metadata = dict(filename=basename, mimetype=info['mimetype'], thumbnail=info['thumbs']['small'])
             info['s3uri'] = self.s3.put_filename(filename, key, metadata=metadata, num_cb=100, cb=percent_callback)
             print('Asset uri:', info['s3uri'])
