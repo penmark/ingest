@@ -1,0 +1,8 @@
+gevent==1.1.2
+lxml==3.4.4
+pillow==3.3.1
+pymongo==3.0.3
+python-magic==0.4.12
+boto==2.44.0
+-e git+https://github.com/penmark/s3-wrapper.git@1.0.0-beta.1#egg=s3_wrapper
+python-dotenv==0.6.2

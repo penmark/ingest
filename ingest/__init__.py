@@ -1,3 +1,5 @@
+import sys
+import os
 from gevent import monkey, spawn
 
 monkey.patch_all()
@@ -10,9 +12,7 @@ from ingest.mediainfo import get_info
 from ingest.mime import get_mime
 from ingest.mongo import Mongo
 from ingest.thumbnail import get_thumbs
-from ingest.s3 import S3, percent_callback
-import sys
-import os
+from boto_wrapper import S3
 
 
 class IngestWorker(object):
@@ -37,7 +37,7 @@ class IngestWorker(object):
             magic_mime = get_mime(filename)
             thumbs = None
             info = info.get()
-            if 'video' in magic_mime:
+            if self.s3 and 'video' in magic_mime:
                 thumbs = spawn(get_thumbs, filename)
             if 'mimetype' not in info:
                 info['mimetype'] = magic_mime
@@ -49,12 +49,19 @@ class IngestWorker(object):
                 small_url = self.s3.put_string(small, key_fmt.format('sm'))
                 info['thumbs'] = dict(large=large_url, small=small_url)
             info['type'] = info['mimetype'].split('/')[0]
-            key = '{}/{}/{}'.format(info['type'], info['hash'], basename)
-            metadata = dict(filename=basename, mimetype=info['mimetype'], thumbnail=info['thumbs']['small'])
-            info['s3uri'] = self.s3.put_filename(filename, key, metadata=metadata, num_cb=100, cb=percent_callback)
-            print('Asset uri:', info['s3uri'])
+            if self.s3:
+                key = '{}/{}/{}'.format(info['type'], info['hash'], basename)
+                metadata = dict(filename=basename, mimetype=info['mimetype'])
+                if thumbs:
+                    metadata.update(thumbnail=info['thumbs']['small'])
+
+                def progress_callback(num_bytes, total_bytes):
+                    progress = '{:s} {:.2f}%'.format(basename, num_bytes / total_bytes * 100)
+                    print(progress, sep='', flush=True)
+
+                info['s3uri'] = self.s3.put_filename(filename, key, metadata=metadata, cb=progress_callback)
+                print('\n', info['s3uri'], sep='')
             if existing:
-                info.pop('title')
                 self.mongo.update(info)
             else:
                 self.mongo.insert(info)
@@ -63,16 +70,27 @@ class IngestWorker(object):
 
 def from_cmd_line():
     from ingest.envdefault import EnvDefault
+    from dotenv import load_dotenv, find_dotenv
+
+    load_dotenv(find_dotenv(usecwd=True))
+
     parser = ArgumentParser()
-    parser.add_argument('-d', '--db-url', required=True, action=EnvDefault, envvar='MONGO_URI', help='Mongodb url')
+    parser.add_argument('-d', '--db-url', required=True, action=EnvDefault, envvar='MONGO_URI',
+                        help='Mongodb url')
     parser.add_argument('-c', '--collection', required=True, action=EnvDefault, envvar='MONGO_COLLECTION',
                         help='Mongodb collection')
-    parser.add_argument('-b', '--bucket', action=EnvDefault, envvar='S3_BUCKET', help='S3 bucket')
-    parser.add_argument('-a', '--access-key', action=EnvDefault, envvar='S3_ACCESS_KEY', help='S3 access key')
-    parser.add_argument('-s', '--secret-key', help='S3 secret key')
-    parser.add_argument('--is-secure', action=EnvDefault, required=False, default=False, envvar='S3_HOST_SSL')
-    parser.add_argument('-H', '--host', action=EnvDefault, envvar='S3_HOST', help='S3 host')
-    parser.add_argument('files', help='Files to process', nargs='*')
+    parser.add_argument('-b', '--bucket', action=EnvDefault, default=None, envvar='S3_BUCKET',
+                        help='S3 bucket')
+    parser.add_argument('-a', '--access-key', action=EnvDefault, default=None, envvar='S3_ACCESS_KEY',
+                        help='S3 access key')
+    parser.add_argument('-s', '--secret-key', action=EnvDefault, default=None, envvar='S3_SECRET_KEY',
+                        help='S3 secret key')
+    parser.add_argument('--is-secure', action=EnvDefault, required=False, type=bool, default=False, envvar='S3_SSL',
+                        help='S3 use ssl')
+    parser.add_argument('-H', '--host', action=EnvDefault, default=None, envvar='S3_HOST',
+                        help='S3 host')
+    parser.add_argument('files', nargs='*',
+                        help='Files to process')
     args = parser.parse_args()
 
     if args.files:
@@ -92,7 +110,13 @@ def spinup(queue, filenames):
 
 def ingest(files, options):
     mongo = Mongo(options.db_url, options.collection)
-    s3 = S3(options)
+    print(options)
+    use_s3 = options.bucket and options.access_key and options.secret_key and options.host
+    if use_s3:
+        s3 = S3(options)
+    else:
+        print('Not using s3')
+        s3 = None
     queue = Queue()
     pool = Pool(5)
     boss = spawn(spinup, queue, files)
