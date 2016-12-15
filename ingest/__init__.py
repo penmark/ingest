@@ -12,7 +12,7 @@ from ingest.mediainfo import get_info
 from ingest.mime import get_mime
 from ingest.mongo import Mongo
 from ingest.thumbnail import get_thumbs
-from boto_wrapper import S3
+from s3_wrapper import S3
 
 
 class IngestWorker(object):
@@ -45,9 +45,9 @@ class IngestWorker(object):
             if thumbs is not None:
                 large, small = thumbs.get()
                 key_fmt = 'thumb/{}/{{}}/{}.png'.format(info['hash'], basename)
-                large_url = self.s3.put_string(large, key_fmt.format('lg'))
-                small_url = self.s3.put_string(small, key_fmt.format('sm'))
-                info['thumbs'] = dict(large=large_url, small=small_url)
+                large_url = spawn(self.s3.put_string, large, key_fmt.format('lg'))
+                small_url = spawn(self.s3.put_string, small, key_fmt.format('sm'))
+                info['thumbs'] = dict(large=large_url.get(), small=small_url.get())
             info['type'] = info['mimetype'].split('/')[0]
             if self.s3:
                 key = '{}/{}/{}'.format(info['type'], info['hash'], basename)
@@ -58,8 +58,8 @@ class IngestWorker(object):
                 def progress_callback(num_bytes, total_bytes):
                     progress = '{:s} {:.2f}%'.format(basename, num_bytes / total_bytes * 100)
                     print(progress, sep='', flush=True)
-
-                info['s3uri'] = self.s3.put_filename(filename, key, metadata=metadata, cb=progress_callback)
+                s3_uri = spawn(self.s3.put_filename, filename, key, metadata=metadata, cb=progress_callback)
+                info['s3uri'] = s3_uri.get()
                 print('\n', info['s3uri'], sep='')
             if existing:
                 self.mongo.update(info)
@@ -69,7 +69,7 @@ class IngestWorker(object):
 
 
 def from_cmd_line():
-    from ingest.envdefault import EnvDefault
+    from s3_wrapper.envdefault import EnvDefault, truthy
     from dotenv import load_dotenv, find_dotenv
 
     load_dotenv(find_dotenv(usecwd=True))
@@ -79,16 +79,18 @@ def from_cmd_line():
                         help='Mongodb url')
     parser.add_argument('-c', '--collection', required=True, action=EnvDefault, envvar='MONGO_COLLECTION',
                         help='Mongodb collection')
-    parser.add_argument('-b', '--bucket', action=EnvDefault, default=None, envvar='S3_BUCKET',
+    parser.add_argument('-b', '--bucket', action=EnvDefault, envvar='S3_BUCKET',
                         help='S3 bucket')
-    parser.add_argument('-a', '--access-key', action=EnvDefault, default=None, envvar='S3_ACCESS_KEY',
+    parser.add_argument('-a', '--access-key', action=EnvDefault, envvar='S3_ACCESS_KEY',
                         help='S3 access key')
-    parser.add_argument('-s', '--secret-key', action=EnvDefault, default=None, envvar='S3_SECRET_KEY',
+    parser.add_argument('-s', '--secret-key', action=EnvDefault, envvar='S3_SECRET_KEY',
                         help='S3 secret key')
-    parser.add_argument('--is-secure', action=EnvDefault, required=False, type=bool, default=False, envvar='S3_SSL',
+    parser.add_argument('--is-secure', action=EnvDefault, required=False, envvar='S3_SSL', type=truthy, default=False,
                         help='S3 use ssl')
-    parser.add_argument('-H', '--host', action=EnvDefault, default=None, envvar='S3_HOST',
+    parser.add_argument('-H', '--host', action=EnvDefault, required=False, envvar='S3_HOST',
                         help='S3 host')
+    parser.add_argument('--calling-format', action=EnvDefault, required=False, envvar='S3_CALLING_FORMAT',
+                        help='S3 calling format')
     parser.add_argument('files', nargs='*',
                         help='Files to process')
     args = parser.parse_args()
@@ -110,8 +112,7 @@ def spinup(queue, filenames):
 
 def ingest(files, options):
     mongo = Mongo(options.db_url, options.collection)
-    print(options)
-    use_s3 = options.bucket and options.access_key and options.secret_key and options.host
+    use_s3 = options.bucket and options.access_key and options.secret_key
     if use_s3:
         s3 = S3(options)
     else:
