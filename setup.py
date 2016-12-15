@@ -23,6 +23,6 @@ setup(
         pymongo==3.0.3
         python-magic==0.4.12
         s3_wrapper
-        python-dotenv==0.6.2
+        python-dotenv==0.6.1
     """
 )
