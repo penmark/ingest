@@ -44,16 +44,18 @@ class IngestWorker(object):
             info['hash'] = hash_.get()
             if thumbs is not None:
                 large, small = thumbs.get()
-                key_fmt = 'thumb/{}/{{}}/{}.png'.format(info['hash'], basename)
-                large_url = spawn(self.s3.put_string, large, key_fmt.format('lg'))
-                small_url = spawn(self.s3.put_string, small, key_fmt.format('sm'))
-                info['thumbs'] = dict(large=large_url.get(), small=small_url.get())
+                key_fmt = '{{}}/{}/{}.png'.format(info['hash'], basename)
+                large_url = spawn(self.s3.put_string, large, key_fmt.format('poster'))
+                small_url = spawn(self.s3.put_string, small, key_fmt.format('thumbnail'))
+                info['poster'] = large_url.get()
+                info['thumbnail'] = small_url.get()
             info['type'] = info['mimetype'].split('/')[0]
             if self.s3:
                 key = '{}/{}/{}'.format(info['type'], info['hash'], basename)
                 metadata = dict(filename=basename, mimetype=info['mimetype'])
-                if thumbs:
-                    metadata.update(thumbnail=info['thumbs']['small'])
+                if thumbs is not None:
+                    metadata.update(thumbnail=info['thumbnail'])
+                    metadata.update(poster=info['poster'])
 
                 def progress_callback(num_bytes, total_bytes):
                     progress = '{:s} {:.2f}%'.format(basename, num_bytes / total_bytes * 100)
@@ -85,7 +87,7 @@ def from_cmd_line():
                         help='S3 access key')
     parser.add_argument('-s', '--secret-key', action=EnvDefault, envvar='S3_SECRET_KEY',
                         help='S3 secret key')
-    parser.add_argument('--is-secure', action=EnvDefault, required=False, envvar='S3_SSL', type=truthy, default=False,
+    parser.add_argument('--is-secure', action=EnvDefault, required=False, envvar='S3_SSL', type=truthy, default=True,
                         help='S3 use ssl')
     parser.add_argument('-H', '--host', action=EnvDefault, required=False, envvar='S3_HOST',
                         help='S3 host')
