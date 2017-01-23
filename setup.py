@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name='ingest',
     description='mongodb mediainfo ingester',
-    version='1.0.4',
+    version='1.0.5',
     packages=find_packages(exclude=['ingest.tests']),
     tests_require=['nose'],
     test_suite='ingest.tests',
@@ -24,5 +24,8 @@ setup(
         python-magic==0.4.12
         s3_wrapper
         python-dotenv==0.6.1
-    """
+    """,
+    dependency_links=[
+        'git+https://github.com/penmark/s3-wrapper.git@1.0.3#egg=s3_wrapper'
+    ]
 )
