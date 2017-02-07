@@ -61,8 +61,8 @@ class IngestWorker(object):
                     progress = '{:s} {:.2f}%'.format(basename, num_bytes / total_bytes * 100)
                     print(progress, sep='', flush=True)
                 s3_uri = spawn(self.s3.put_filename, filename, key, metadata=metadata, cb=progress_callback)
-                info['s3uri'] = s3_uri.get()
-                print('\n', info['s3uri'], sep='')
+                info['url'] = s3_uri.get()
+                print('\n', info['url'], sep='')
             if existing:
                 self.mongo.update(info)
             else:
