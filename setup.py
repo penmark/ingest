@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name='ingest',
     description='mongodb mediainfo ingester',
-    version='1.1.0',
+    version='1.1.1',
     packages=find_packages(exclude=['ingest.tests']),
     tests_require=['nose'],
     test_suite='ingest.tests',
@@ -17,7 +17,7 @@ setup(
         """
     },
     install_requires="""
-        gevent==1.1.2
+        gevent==1.2.1
         lxml==3.4.4
         pillow==3.3.1
         pymongo==3.0.3
